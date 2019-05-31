@@ -1,64 +1,48 @@
-import pandas as pd
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import datasets as ds
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import chi2
+from sklearn.feature_selection import SelectKBest, chi2, f_classif, f_regression
 
-def UnivariateSelection():
-	
-	#Select the best features
-	bestFeatures = SelectKBest(score_func=chi2, k='all')
-	fit = bestFeatures.fit(data.data, data.target)
+data = ds.load_wine()
 
-	# Concat dataframes to print
-	dfScores = pd.DataFrame(fit.scores_)
-	dfColumns = pd.DataFrame(data.feature_names)
-	featureScores = pd.concat([dfColumns, dfScores], axis=1)
-	featureScores.columns = ['Specs', 'Score']
+feature_names = data.feature_names
+x = data.data
+y = data.target
 
-	#printing the Top10
-	print(featureScores.nlargest(10, 'Score'))
+def KBest(func):
+    print("Antes:")
+    print(data.feature_names[:-1])
+    print(x.shape)
 
-def FeatureImportance():
-	data = ds.load_iris()
-	
-	model = ExtraTreesClassifier(n_estimators=10)
-	model.fit(data.data,data.target)
-	print(model.feature_importances_) #use inbuilt class feature_importances of tree based classifiers
+    skb = SelectKBest(score_func=func, k=3)
+    best = skb.fit_transform(x, y)
 
-	#plot graph of feature importances for better visualization
-	feat_importances = pd.Series(model.feature_importances_, index=data.feature_names)
-	feat_importances.nlargest(10).plot(kind='barh')
-	plt.show()
+    print("Depois:")
+    print([data.feature_names[i] for i in skb.get_support(indices=True)])
+    print(best.shape)
 
-def CorrelationSelection():
-	data = ds.load_iris()
+    return skb.scores_, skb.pvalues_
 
-	irisData = np.append(data.data, data.target.reshape(data.target.shape[0], 1), axis=1)
 
-	data = pd.DataFrame(irisData, columns=np.append(data.feature_names, ['class']))
+chi_scores, chi_pvalues = KBest(chi2)
 
-	corrmat = data.corr()
-	top_corr_features = corrmat.index
-	
-	plt.figure()
+classif_scores, classif_pvalues = KBest(f_classif)
 
-	g = sns.heatmap(data[top_corr_features].corr(), annot=True, cmap="RdYlGn")
+regression_scores, regression_pvalues = KBest(f_regression)
 
-	plt.show()
+ind = np.arange(len(feature_names))
+width = 0.25
 
-data = ds.load_iris()
+plt.figure(figsize=[10, 10])
 
-print("Univariate Selection")
-UnivariateSelection()
-print()
-print("Feature Importance")
-FeatureImportance()
-print()
-print("Correlation Selection")
-CorrelationSelection()
-print()
+plt.bar(ind - width, chi_scores, width, label='chi2')
+plt.bar(ind, classif_scores, width, label='f_classif')
+plt.bar(ind + width, regression_scores, width, label='f_regression')
+
+plt.title("Scores")
+plt.ylabel('Feature')
+plt.xticks(ind, feature_names, rotation=90)
+plt.ylabel('Pontuação')
+plt.legend()
+
+plt.show()
